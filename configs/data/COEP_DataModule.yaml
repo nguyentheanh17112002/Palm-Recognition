@@ -1,0 +1,6 @@
+_target_: src.data.COEP_DataModule
+
+root_dir: ${paths.data_dir}
+batch_size: 2
+train_val_split: [1040, 265]
+num_workers: 0

@@ -1,0 +1,32 @@
+_target_: src.models.ArcPalmModule.ArcPalmModule
+backbone: 
+  _target_: src.models.backbone.ViT.SimpleViT
+  image_height: 1200
+  image_width: 1600
+  patch_size: 40
+  num_classes: 512
+  dim: 1024
+  depth: 4
+  heads: 8
+  mlp_dim: 2048
+arcmargin: 
+  _target_: src.models.backbone.ArcPalm.ArcMarginProduct
+  in_features: 512
+  out_features: 167
+  s: 30.0
+  m: 0.50
+  easy_margin: False
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.000001
+  weight_decay: 0.0
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 10
+
+compile: False
