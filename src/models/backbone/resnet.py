@@ -72,7 +72,7 @@ class Block(nn.Module):
         
         
 class ResNet(nn.Module):
-    def __init__(self, ResBlock, layer_list, num_classes, num_channels=3):
+    def __init__(self, layer_list, num_classes, num_channels=3, ResBlock = Bottleneck):
         super(ResNet, self).__init__()
         self.in_channels = 64
         
