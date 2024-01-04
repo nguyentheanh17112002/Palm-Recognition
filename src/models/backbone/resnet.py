@@ -72,8 +72,23 @@ class Block(nn.Module):
         
         
 class ResNet(nn.Module):
-    def __init__(self, layer_list, num_classes, num_channels=3, ResBlock = Bottleneck):
+    def __init__(self, block, model, num_classes, num_channels=3):
         super(ResNet, self).__init__()
+        if model == 'resnet18':
+            layer_list = [2,2,2,2]
+        elif model == 'resnet34':
+            layer_list = [3,4,6,3]
+        elif model == 'resnet50':
+            layer_list = [3,4,6,4]
+        elif model == 'resnet101':
+            layer_list = [3,4,23,3]
+        elif model == 'resnet152':
+            layer_list = [3, 8, 36, 3]
+
+        if block == 'Bottleneck':
+            ResBlock = Bottleneck
+        elif block == 'Block':
+            ResBlock = Block
         self.in_channels = 64
         
         self.conv1 = nn.Conv2d(num_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)

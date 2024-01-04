@@ -17,8 +17,10 @@ class COEP_Dataset(Dataset):
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
         self.path = []
+        valid_extensions = ['.jpg', '.jpeg', '.JPG', '.png', '.PNG', '.JPEG']
         for image in os.listdir(root_dir):
-            self.path.append(os.path.join(root_dir, image))
+            if any(image.endswith(ext) for ext in valid_extensions):
+                self.path.append(os.path.join(root_dir, image))
 
     def __len__(self):
         return(len(self.path))
