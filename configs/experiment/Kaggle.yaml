@@ -12,10 +12,11 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["COEP", "Kaggle", "ResNet50"]
+tags: ["COEP", "ResNet50"]
 
 data:
   root_dir: ${paths.data_dir}
+  batch_size: 64
 
 logger:
   wandb:

@@ -29,7 +29,7 @@ class COEP_DataModule(LightningDataModule):
         if stage == 'fit' or stage is None:
             self.dataset = COEP_Dataset(self.root_dir, train=True)
             self.train_set, self.val_set = random_split(self.dataset, self.train_val_split)
-        elif stage == 'test':
+        elif stage == 'test' or stage is None:
             self.test_set = COEP_Dataset(self.root_dir, train=False, random_seed=self.random_seed, test_size=self.test_size) 
         return super().setup(stage)
 
