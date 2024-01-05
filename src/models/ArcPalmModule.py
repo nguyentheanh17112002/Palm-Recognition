@@ -1,12 +1,14 @@
 from typing import Any, List, Dict, Tuple
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 
 import torch
 from lightning import LightningModule
 
 
-from torchmetrics import MaxMetric, MeanMetric
+from torchmetrics import MaxMetric, MeanMetric, AUROC
 from torchmetrics.classification.accuracy import Accuracy
 
+import torch.nn.functional as F
 
 class ArcPalmModule(LightningModule):
     def __init__(
@@ -27,9 +29,9 @@ class ArcPalmModule(LightningModule):
         self.criterion = torch.nn.CrossEntropyLoss()
 
         # metric objects for calculating and averaging accuracy across batches
-        self.train_acc = Accuracy(task="multiclass", num_classes=167)
-        self.val_acc = Accuracy(task="multiclass", num_classes=167)
-        self.test_acc = Accuracy(task="multiclass", num_classes=167)
+        self.train_acc = Accuracy(task="multiclass", num_classes=96)
+        self.val_acc = Accuracy(task="multiclass", num_classes=96)
+        self.test_acc = Accuracy(task="multiclass", num_classes=96)
 
         # for averaging loss across batches
         self.train_loss = MeanMetric()
@@ -38,6 +40,12 @@ class ArcPalmModule(LightningModule):
 
         # for tracking best so far validation accuracy
         self.val_acc_best = MaxMetric()
+
+        self.auroc = AUROC(task = 'binary')
+        self.auroc_best = MaxMetric()
+
+        self.test_preds = torch.empty(0)
+        self.test_targets = torch.empty(0)
 
     def forward(self, x:torch.Tensor) -> torch.Tensor:
         return self.backbone(x)
@@ -90,10 +98,27 @@ class ArcPalmModule(LightningModule):
 
         # return loss or backpropagation will fail
         return loss
+    
+    def test_step(self, batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int):
+        img1 , img2 , targets = batch
+        feature1 = self.forward(img1)
+        feature2 = self.forward(img2)
+
+        feature1 = F.normalize(feature1, p=2, dim=1)
+        feature2 = F.normalize(feature2, p=2, dim=1)
+        
+        score = torch.sum(feature1*feature2, dim=1)
+        
+        self.test_preds = torch.cat((self.test_preds, score), dim = 0)
+        self.test_targets = torch.cat((self.test_targets, targets))
 
     def on_train_epoch_end(self) -> None:
         "Lightning hook that is called when a training epoch ends."
-        pass
+        self.logger.log({"ROC Curve" : self.logger.plot.roc_curve(self.test_targets, self.test_preds)})
+
+        self.auroc(self.test_preds, self.test_targets)
+        self.log('AUC', self.auroc)
+
 
     def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> None:
         """Perform a single validation step on a batch of data from the validation set.

@@ -34,7 +34,7 @@ model:
   arcmargin: 
     _target_: src.models.backbone.ArcPalm.ArcMarginProduct
     in_features: 1024
-    out_features: 167
+    out_features: 96
     s: 30.0
     m: 0.50
     easy_margin: False
