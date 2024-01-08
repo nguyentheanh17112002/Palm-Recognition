@@ -123,5 +123,5 @@ class COEP_Dataset(Dataset):
 
 
 if __name__ == "__main__":
-    trainset = COEP_Dataset("/home/anhnt596/Palm-Recognition/data", train=True)
+    testset = COEP_Dataset("/home/anhnt596/Palm-Recognition/data", train=False)
     print(trainset[-1])

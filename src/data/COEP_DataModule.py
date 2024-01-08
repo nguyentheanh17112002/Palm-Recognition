@@ -50,16 +50,9 @@ if __name__ == "__main__":
     coep.setup(stage='test')
     testloader = coep.test_dataloader()
 
-    for batch in trainloader:
-        x, y = batch
-        print(x.shape)
-        print(y.shape)
-
-        break
-
     for batch in testloader:
         x,y,z = batch
-        print(x.shape)
-        print(y.shape)
-        print(z.shape)
+        print(z)
+        print(type(z))
+        print(type(z[0]))
         break

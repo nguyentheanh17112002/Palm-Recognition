@@ -16,7 +16,7 @@ tags: ["COEP", "ResNet50"]
 
 data:
   root_dir: ${paths.data_dir}
-  batch_size: 64
+  batch_size: 32
 
 logger:
   wandb:

@@ -22,8 +22,8 @@ class ArcPalmModule(LightningModule):
         super().__init__()
 
         self.save_hyperparameters(logger=False)
-        self.test_preds = torch.empty(0)
-        self.test_targets = torch.empty(0)
+        self.test_preds = torch.empty(0, device='cuda')
+        self.test_targets = torch.empty(0, device='cuda')
 
         self.backbone = backbone
         self.arcmargin = arcmargin
@@ -105,19 +105,14 @@ class ArcPalmModule(LightningModule):
         img1 , img2 , targets = batch
         feature1 = self.forward(img1)
         feature2 = self.forward(img2)
-        
-        feature1, feature2, targets = self.predict_step(batch, batch_idx)
 
         feature1 = F.normalize(feature1, p=2, dim=1)
         feature2 = F.normalize(feature2, p=2, dim=1)
-        
-        print(feature1.shape)
-        print(feature2.shape)
 
         score = torch.sum(feature1*feature2, dim=1)
-        
+
         self.test_preds = torch.cat((self.test_preds, score), dim = 0)
-        self.test_targets = torch.cat((self.test_targets, targets))
+        self.test_targets = torch.cat((self.test_targets, targets), dim=0)
 
     def on_train_epoch_end(self) -> None:
         "Lightning hook that is called when a training epoch ends."
