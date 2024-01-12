@@ -13,7 +13,7 @@ class COEP_DataModule(LightningDataModule):
     def __init__(self,
                  root_dir: str = './database',
                  batch_size: int = 64,
-                 train_val_split: List = [619, 150],
+                 train_val_split: List = [80, 20],
                  random_seed:int = 42,
                  test_size: int = 10000,
                  num_workers: int = 0,) -> None:
@@ -28,8 +28,10 @@ class COEP_DataModule(LightningDataModule):
     def setup(self, stage = None) -> None:
         if stage == 'fit' or stage is None:
             self.dataset = COEP_Dataset(self.root_dir, train=True)
-            self.train_set, self.val_set = random_split(self.dataset, self.train_val_split)
-        elif stage == 'test' or stage is None:
+            train_size = int(len(self.dataset)*self.train_val_split[0]/100)
+            val_size = len(self.dataset)-train_size
+            self.train_set, self.val_set = random_split(self.dataset, [train_size, val_size])
+        elif stage == 'test':
             self.test_set = COEP_Dataset(self.root_dir, train=False, random_seed=self.random_seed, test_size=self.test_size) 
         return super().setup(stage)
 
@@ -50,9 +52,16 @@ if __name__ == "__main__":
     coep.setup(stage='test')
     testloader = coep.test_dataloader()
 
+    for batch in trainloader:
+        x, y = batch
+        print(x.shape)
+        print(y.shape)
+
+        break
+
     for batch in testloader:
         x,y,z = batch
-        print(z)
-        print(type(z))
-        print(type(z[0]))
+        print(x.shape)
+        print(y.shape)
+        print(z.shape)
         break

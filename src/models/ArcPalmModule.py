@@ -8,6 +8,9 @@ from lightning import LightningModule
 from torchmetrics import MaxMetric, MeanMetric, AUROC, ROC
 from torchmetrics.classification.accuracy import Accuracy
 
+import wandb
+import pandas as pd
+
 import torch.nn.functional as F
 
 class ArcPalmModule(LightningModule):
@@ -22,8 +25,6 @@ class ArcPalmModule(LightningModule):
         super().__init__()
 
         self.save_hyperparameters(logger=False)
-        self.test_preds = torch.empty(0, device='cuda')
-        self.test_targets = torch.empty(0, device='cuda')
 
         self.backbone = backbone
         self.arcmargin = arcmargin
@@ -44,10 +45,10 @@ class ArcPalmModule(LightningModule):
         self.val_acc_best = MaxMetric()
 
         self.auroc = AUROC(task = 'binary')
-        self.auroc_best = MaxMetric()
-        self.roc = ROC(task = 'binary')
+        self.roc = ROC(task='binary')
 
-        
+        self.test_preds = torch.empty(0, device='cuda')
+        self.test_targets = torch.empty(0, device='cuda')
 
     def forward(self, x:torch.Tensor) -> torch.Tensor:
         return self.backbone(x)
@@ -108,14 +109,22 @@ class ArcPalmModule(LightningModule):
 
         feature1 = F.normalize(feature1, p=2, dim=1)
         feature2 = F.normalize(feature2, p=2, dim=1)
-
+        
         score = torch.sum(feature1*feature2, dim=1)
-
+        # print(score.shape)
+        # print(targets.shape)
+        
         self.test_preds = torch.cat((self.test_preds, score), dim = 0)
-        self.test_targets = torch.cat((self.test_targets, targets), dim=0)
+        self.test_targets = torch.cat((self.test_targets, targets), dim = 0)
 
     def on_train_epoch_end(self) -> None:
         "Lightning hook that is called when a training epoch ends."
+        # self.roc.update(self.test_preds, self.test_targets.to(torch.long))
+        # fig, _ = self.roc.plot()
+        # plot = wandb.Plotly(fig)
+
+        # wandb.log({'Roc Curve':plot})
+        
         pass
 
 
@@ -145,8 +154,23 @@ class ArcPalmModule(LightningModule):
 
     def on_test_epoch_end(self) -> None:
         """Lightning hook that is called when a test epoch ends."""
-        self.roc(self.test_preds, self.test_targets)
-        self.log("ROC Curve", self.roc )
+        self.roc.update(self.test_preds, self.test_targets.to(torch.long))
+        fig, ax = self.roc.plot()
+
+        plot = wandb.Plotly(fig)
+
+        wandb.log({"ROC Curve":plot})
+
+
+
+        fpr, tpr, thresholds = self.roc(self.test_preds, self.test_targets.to(torch.long))
+
+        data = {"TPR": tpr.detach().cpu().numpy(), "FPR": fpr.detach().cpu().numpy(), "Thresholds": thresholds.detach().cpu().numpy()}
+        df = pd.DataFrame(data)
+
+        df.to_csv("/home/anhnt596/Palm-Recognition/logs/COEP_ViT_lan1.csv")
+        tbl = wandb.Table(dataframe=pd.DataFrame(data))
+        wandb.log({"TPR/FPR" : tbl})
 
         self.auroc(self.test_preds, self.test_targets)
         self.log('AUC', self.auroc)

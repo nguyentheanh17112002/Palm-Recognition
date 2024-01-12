@@ -19,7 +19,7 @@ class COEP_Dataset(Dataset):
         self.test_dir = os.path.join(self.root_dir,'test')
 
         self.transform = transforms.Compose([
-            transforms.Resize((256,256)),
+            #transforms.Resize((256,256)),
             transforms.ToTensor(), 
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
@@ -121,7 +121,10 @@ class COEP_Dataset(Dataset):
             return img1, img2, val
 
 
-
 if __name__ == "__main__":
-    testset = COEP_Dataset("/home/anhnt596/Palm-Recognition/data", train=False)
-    print(trainset[-1])
+    testset = COEP_Dataset("/home/anhnt596/Palm-Recognition/data/COEP/ROI", train=False)
+    img1 , img2 , target = testset[23]
+
+    print(img1.shape)
+    print(img2.shape)
+    print(target)

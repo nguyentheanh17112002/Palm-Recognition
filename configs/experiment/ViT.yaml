@@ -12,10 +12,15 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["COEP", "Vision Transform"]
+tags: ["COEP", "Vision Transform", "ROI"]
 
 data:
-  batch_size: 32
+  batch_size: 128
+
+trainer:
+  min_epochs: 3000
+  max_epochs: 3000
+
 logger:
   wandb:
     tags: ${tags}
@@ -26,18 +31,20 @@ logger:
 model: 
   backbone: 
     _target_: src.models.backbone.ViT.SimpleViT
-    image_height: 256
-    image_width: 256
+    image_height: 224
+    image_width: 224
     patch_size: 32
-    num_classes: 1024
+    num_classes: 512
     dim: 1024
-    depth: 6
-    heads: 16
-    mlp_dim: 2048
+    depth: 4
+    heads: 12
+    mlp_dim: 1024
   arcmargin: 
     _target_: src.models.backbone.ArcPalm.ArcMarginProduct
-    in_features: 1024
+    in_features: 512
     out_features: 96
     s: 30.0
     m: 0.50
     easy_margin: False
+  optimizer:
+    lr: 0.000001
