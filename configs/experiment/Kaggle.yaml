@@ -20,7 +20,7 @@ data:
 trainer:
   min_epochs: 300
   max_epochs: 500
-
+  devices: 2
 logger:
   wandb:
     tags: ${tags}
