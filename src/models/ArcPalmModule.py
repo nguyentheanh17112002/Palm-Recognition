@@ -15,12 +15,13 @@ import torch.nn.functional as F
 
 class ArcPalmModule(LightningModule):
     def __init__(
-                self, 
+                self,
                 backbone: torch.nn.Module,
                 arcmargin: torch.nn.Module,
                 optimizer: torch.optim.Optimizer,
                 scheduler: torch.optim.lr_scheduler,
                 compile: bool,
+                num_classes: int = 1581, 
                 ):
         super().__init__()
 
@@ -30,11 +31,11 @@ class ArcPalmModule(LightningModule):
         self.arcmargin = arcmargin
         # loss function
         self.criterion = torch.nn.CrossEntropyLoss()
-
+        self.num_classes = num_classes
         # metric objects for calculating and averaging accuracy across batches
-        self.train_acc = Accuracy(task="multiclass", num_classes=96)
-        self.val_acc = Accuracy(task="multiclass", num_classes=96)
-        self.test_acc = Accuracy(task="multiclass", num_classes=96)
+        self.train_acc = Accuracy(task="multiclass", num_classes=self.num_classes)
+        self.val_acc = Accuracy(task="multiclass", num_classes=self.num_classes)
+        self.test_acc = Accuracy(task="multiclass", num_classes=self.num_classes)
 
         # for averaging loss across batches
         self.train_loss = MeanMetric()
@@ -168,7 +169,7 @@ class ArcPalmModule(LightningModule):
         data = {"TPR": tpr.detach().cpu().numpy(), "FPR": fpr.detach().cpu().numpy(), "Thresholds": thresholds.detach().cpu().numpy()}
         df = pd.DataFrame(data)
 
-        df.to_csv("/home/anhnt596/Palm-Recognition/logs/COEP_ViT_lan1.csv")
+        df.to_csv("/home/anhnt596/Palm-Recognition/logs/ROC.csv")
         tbl = wandb.Table(dataframe=pd.DataFrame(data))
         wandb.log({"TPR/FPR" : tbl})
 

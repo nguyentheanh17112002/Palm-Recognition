@@ -1,0 +1,9 @@
+_target_: src.data.Full_DataModule
+
+root_dir: ${paths.data_dir}/Full
+num_classes: 1581
+batch_size: 128
+train_val_split: [85, 15]
+random_seed: 42
+test_size: 100000
+num_workers: 0

@@ -11,8 +11,8 @@ _target_: src.models.ArcPalmModule.ArcPalmModule
 #     mlp_dim: 2048
 arcmargin: 
   _target_: src.models.backbone.ArcPalm.ArcMarginProduct
-  in_features: 512
-  out_features: 167
+  in_features: 2048
+  out_features: 1581
   s: 30.0
   m: 0.50
   easy_margin: False
@@ -29,4 +29,5 @@ scheduler:
   factor: 0.1
   patience: 10
 
+num_classes: 1581
 compile: False

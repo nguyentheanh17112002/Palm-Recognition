@@ -4,7 +4,7 @@
 # python train.py experiment=example
 
 defaults:
-  - override /data: COEP_DataModule
+  - override /data: Full_DataModule
   - override /model: ArcPalmModule
   - override /callbacks: default
   - override /trainer: gpu
@@ -12,30 +12,35 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["COEP", "ResNet50"]
+tags: ["Full", "Resnet 50", "ROI"]
 
 data:
-  root_dir: ${paths.data_dir}
-  batch_size: 32
+  batch_size: 512
+
+trainer:
+  min_epochs: 300
+  max_epochs: 500
 
 logger:
   wandb:
     tags: ${tags}
-    group: "COEP"
+    group: "Resnet 50"
   aim:
-    experiment: "COEP ViT"
+    experiment: "Full Resnet"
 
-model:
-  backbone:
+model: 
+  backbone: 
     _target_: src.models.backbone.resnet.ResNet
     block: "Bottleneck"
     model: "resnet50"
-    num_classes: 1024
+    num_classes: 512
     num_channels: 3
   arcmargin: 
     _target_: src.models.backbone.ArcPalm.ArcMarginProduct
-    in_features: 1024
-    out_features: 96
+    in_features: 512
+    out_features: 1581
     s: 30.0
     m: 0.50
     easy_margin: False
+  optimizer:
+    lr: 0.00001
