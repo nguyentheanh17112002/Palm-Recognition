@@ -1,8 +1,0 @@
-_target_: src.data.COEP_DataModule
-
-root_dir: ${paths.data_dir}/COEP/ROI
-batch_size: 64
-train_val_split: [80, 20]
-random_seed: 42
-test_size: 10000
-num_workers: 0

@@ -8,61 +8,66 @@ from torchvision import transforms
 from torchvision.datasets import ImageFolder
 import re
 import random
+import numpy as np
+import cv2
+
+class CustomTransform(object):
+    def __call__(self, img):
+        img_np = np.array(img)
+
+        gray_img = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
+        
+        edge1 = cv2.Canny(gray_img, 10, 20)
+        edge2 = cv2.Canny(gray_img, 20, 40)
+        edge3 = cv2.Canny(gray_img, 40, 80)
+
+        # Mở rộng kích thước của mỗi cạnh từ (H, W) thành (H, W, 1) để có 1 channel
+        edge1 = np.expand_dims(edge1, axis=2)
+        edge2 = np.expand_dims(edge2, axis=2)
+        edge3 = np.expand_dims(edge3, axis=2)
+
+        img_np = np.concatenate((img_np, edge1, edge2, edge3), axis=2)
+
+        return img_np
+
 
 class Full_Dataset(Dataset):
-    def __init__(self, root_dir:str, train: bool, random_seed: int = 42, test_size:int  = 100000) -> None:
+    def __init__(self, root_dir:str,type_data:str, train: bool) -> None:
         super().__init__()
-        self.test_size = test_size
-        self.random_seed = random_seed
         self.train = train
         self.root_dir = root_dir
         self.train_dir = os.path.join(self.root_dir,'train')
         self.test_dir = os.path.join(self.root_dir,'test')
 
-        self.transform = transforms.Compose([
+        self.pair_path = os.path.join(root_dir, 'test_pairs.txt')
+        if type_data == 'base':
+            self.transform = transforms.Compose([
             transforms.ToTensor(), 
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
+        elif type_data == 'canny':
+            self.transform = transforms.Compose([
+            CustomTransform(),
+            transforms.ToTensor(), 
+            transforms.Normalize(mean=[0.485, 0.456, 0.406, 0.5, 0.5, 0.5], std=[0.229, 0.224, 0.225, 0.5, 0.5, 0.5])
+        ])
+        
         self.train_set = ImageFolder(self.train_dir, transform=self.transform)
         self.test_pair = self._create_pair()
-
-        # self.test_path = []
-        # valid_extensions = ['.jpg', '.jpeg', '.JPG', '.png', '.PNG', '.JPEG']
-        # for image in os.listdir(self.test_dir):
-        #     if any(image.endswith(ext) for ext in valid_extensions):
-        #         self.test_path.append(os.path.join(self.test_dir, image))
-        
+            
     def _create_pair(self):
-        random.seed(self.random_seed)
-        #create dictionary: {id : [img, img, img,...]}
-        id_to_images = {}
-        
-        for personID in os.listdir(self.test_dir):
-            if personID not in id_to_images:
-                id_to_images[personID] = []
-            personID_path = os.path.join(self.test_dir, personID)
-            for image in os.listdir(personID_path):
-                image_path = os.path.join(personID_path, image)
-                id_to_images[personID].append(image_path)
+        with open(self.pair_path, 'r') as file:
+            lines = file.readlines()
 
-        same_person_pairs = []
-        for _, paths in id_to_images.items():
-            if len(paths) >= 2:
-                size = len(paths)
-                same_person_pairs.extend([(paths[i], paths[j], 1) for i in range(size - 1) for j in range(i + 1, size)])
-        
-        different_person_pairs = []
-        for _ in range(self.test_size - len(same_person_pairs)):
-            person_ids = random.sample(list(id_to_images.keys()), 2)
-            path1 = random.choice(id_to_images[person_ids[0]])
-            path2 = random.choice(id_to_images[person_ids[1]])
-            different_person_pairs.append((path1, path2, 0))
+        result_list = []
 
-        res = same_person_pairs+different_person_pairs
+        for line in lines:
+            elements = line.strip().split(',')
+            if elements[2].isdigit():
+                elements[2] = int(elements[2])
+            result_list.append(tuple(elements))
 
-        random.shuffle(res)
-
-        return res
+        return result_list
 
 
     def __len__(self):
@@ -75,17 +80,17 @@ class Full_Dataset(Dataset):
         if self.train:
             return self.train_set[index]
         else:
-            img1, img2, val = self.test_pair[index]
+            path1, path2, val = self.test_pair[index]
+            path1 = os.path.join(self.test_dir, path1)
+            path2 = os.path.join(self.test_dir, path2)
 
-            img1 = Image.open(img1)
+            img1 = Image.open(path1)
             img1 = self.transform(img1)
-            img2 = Image.open(img2)
+            img2 = Image.open(path2)
             img2 = self.transform(img2)
-
             return img1, img2, val
 
 if __name__ == "__main__":
-    trainset = Full_Dataset("/home/anhnt596/Palm-Recognition/data/Full", train=False)
+    trainset = Full_Dataset("/home/anhnt596/Palm-Recognition/data/data", train=False)
 
-    print(trainset[50][0].shape)
-    
+    print(trainset[0][0].shape)

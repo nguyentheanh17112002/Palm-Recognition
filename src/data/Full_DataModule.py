@@ -12,29 +12,28 @@ from .Full_Dataset import Full_Dataset
 class Full_DataModule(LightningDataModule):
     def __init__(self,
                  root_dir: str = './/home/anhnt596/Palm-Recognition/data/Full',
-                 num_classes: int = 1581,
+                 num_classes: int = 2786,
+                 type_data: str = 'base',
                  batch_size: int = 64,
                  train_val_split: List = [85, 15],
-                 random_seed:int = 42,
-                 test_size: int = 100000,
                  num_workers: int = 0,) -> None:
         super().__init__()
         self.num_classes = num_classes
-        self.random_seed = random_seed
-        self.test_size = test_size
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.train_val_split = train_val_split
         self.num_workers = num_workers
+        self.type_data = type_data
 
     def setup(self, stage = None) -> None:
         if stage == 'fit' or stage is None:
-            self.dataset = Full_Dataset(self.root_dir, train=True)
+            self.dataset = Full_Dataset(self.root_dir,type_data=self.type_data, train=True)
             train_size = int(len(self.dataset)*self.train_val_split[0]/100)
             val_size = len(self.dataset)-train_size
             self.train_set, self.val_set = random_split(self.dataset, [train_size, val_size])
         elif stage == 'test':
-            self.test_set = Full_Dataset(self.root_dir, train=False, random_seed=self.random_seed, test_size=self.test_size) 
+            self.test_set = Full_Dataset(self.root_dir,type_data=self.type_data, train=False) 
+            print("Len test set: ", len(self.test_set))
         return super().setup(stage)
 
     def train_dataloader(self):

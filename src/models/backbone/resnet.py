@@ -69,7 +69,53 @@ class Block(nn.Module):
       return x
 
 
-        
+def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
+    """3x3 convolution with padding"""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
+                     padding=dilation, groups=groups, bias=False, dilation=dilation)
+
+
+def conv1x1(in_planes, out_planes, stride=1):
+    """1x1 convolution"""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+
+class IBasicBlock(nn.Module):
+    expansion = 1
+
+    def __init__(self, inplanes, planes, stride=1, i_downsample=None, groups=1,
+                 base_width=64, dilation=1):
+        super(IBasicBlock, self).__init__()
+        if groups != 1 or base_width != 64:
+            raise ValueError('BasicBlock only supports groups=1 and base_width=64')
+        if dilation > 1:
+            raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
+        # Both self.conv1 and self.downsample layers downsample the input when stride != 1
+        self.bn1 = nn.BatchNorm2d(inplanes, eps=2e-05, momentum=0.9)
+        self.conv1 = conv3x3(inplanes, planes)
+        self.bn2 = nn.BatchNorm2d(planes, eps=2e-05, momentum=0.9)
+        self.prelu = nn.PReLU(planes)
+        self.conv2 = conv3x3(planes, planes, stride)
+        self.bn3 = nn.BatchNorm2d(planes, eps=2e-05, momentum=0.9)
+        self.downsample = i_downsample
+        self.stride = stride
+
+    def forward(self, x):
+        identity = x
+
+        out = self.bn1(x)
+        out = self.conv1(out)
+        out = self.bn2(out)
+        out = self.prelu(out)
+        out = self.conv2(out)
+        out = self.bn3(out)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out += identity
+
+        return out
+
         
 class ResNet(nn.Module):
     def __init__(self, block, model, num_classes, num_channels=3):
@@ -89,6 +135,8 @@ class ResNet(nn.Module):
             ResBlock = Bottleneck
         elif block == 'Block':
             ResBlock = Block
+        elif block == 'IBasicBlock':
+            ResBlock = IBasicBlock
         self.in_channels = 64
         
         self.conv1 = nn.Conv2d(num_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
@@ -139,8 +187,8 @@ class ResNet(nn.Module):
 
         
 if __name__ == "__main__":
-    res = ResNet(Bottleneck, [3,4,6,3], 1024, 3)
-    x = torch.randn([64,3,1200,1600])
+    res = ResNet('IBasicBlock', 'resnet50', 512, 3)
+    x = torch.randn([16,3,224,224])
     print(x.shape)
     print(res(x).shape)
     

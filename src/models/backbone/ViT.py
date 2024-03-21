@@ -119,15 +119,16 @@ class SimpleViT(nn.Module):
         return self.linear_head(x)
     
 if __name__ == "__main__":
-    X = torch.randn((64, 3, 1200, 1600))
+    X = torch.randn((64, 6, 224, 224))
     v = SimpleViT(
-                image_height = 1200,
-                image_width = 1600,
-                patch_size = 40,
+                image_height = 224,
+                image_width = 224,
+                patch_size = 7,
                 num_classes = 512,
                 dim = 1024,
                 depth = 6,
                 heads = 16,
-                mlp_dim = 2048
+                mlp_dim = 2048,
+                channels=6
                 )
     print(v(X).shape)

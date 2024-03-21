@@ -8,22 +8,31 @@ defaults:
   - override /model: ArcPalmModule
   - override /callbacks: default
   - override /trainer: gpu
+  - override /hydra: default
+  - override /logger: wandb
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["Full", "Resnet 50", "ROI"]
+tags: ["Thesis", "No Pretrain", "Resnet 50", "ArcFaceLoss", "Canny"]
 
+hydra:
+  run:
+    dir: ${paths.log_dir}/${task_name}/runs/ThesisPalm_Resnet50_NoPretrain_ArcFaceLoss_Canny_2
+    
 data:
-  batch_size: 256
-  num_workers: 2
+  type_data: 'canny'
+  batch_size: 32
+  num_workers: 20
 
 trainer:
-  min_epochs: 300
-  max_epochs: 500
-  devices: 1
+  min_epochs: 150
+  max_epochs: 150
+  accumulate_grad_batches: 4
+
 logger:
   wandb:
+    name: "ThesisPalm_Resnet50_NoPretrain_ArcFaceLoss_Canny_2"
     tags: ${tags}
     group: "Resnet 50"
   aim:
@@ -35,13 +44,9 @@ model:
     block: "Bottleneck"
     model: "resnet50"
     num_classes: 512
-    num_channels: 3
-  arcmargin: 
-    _target_: src.models.backbone.ArcPalm.ArcMarginProduct
-    in_features: 512
-    out_features: 1581
-    s: 30.0
-    m: 0.50
-    easy_margin: False
+    num_channels: 6
+  loss: 'ArcFaceLoss'
   optimizer:
-    lr: 0.00001
+    lr: 0.01
+  num_classes: 1527
+  # pretrain_backbone: "/home/anhnt596/Palm-Recognition/logs/train/runs/Pretrained_Resnet50_SubCenterArcFace_DataGen/checkpoints/epoch_023.ckpt"

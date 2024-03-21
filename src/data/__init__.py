@@ -1,2 +1,1 @@
-from .COEP_DataModule import COEP_DataModule
 from .Full_DataModule import Full_DataModule
