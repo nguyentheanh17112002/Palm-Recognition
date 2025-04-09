@@ -19,7 +19,7 @@ cffi==1.16.0
 cfgv==3.4.0
 charset-normalizer==3.3.2
 click==8.1.7
-cliff==4.4.0
+cliff==4.9.1
 cmaes==0.10.0
 cmd2==2.4.3
 colorlog==6.8.0
