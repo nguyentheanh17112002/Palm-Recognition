@@ -172,7 +172,7 @@ urllib3==2.1.0
 virtualenv==20.25.0
 wandb==0.16.1
 wcwidth==0.2.12
-webcolors==1.13
+webcolors==24.11.1
 webencodings==0.5.1
 websocket-client==1.7.0
 widgetsnbextension==4.0.9
