@@ -1,0 +1,2 @@
+export WANDB_API_KEY=3bbdd93baadb01bf3dea65377485c0246b2b0337
+python src/train.py experiment=Kaggle
