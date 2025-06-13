@@ -2,17 +2,59 @@
 
 defaults:
   - _self_
-  - data: mnist # choose datamodule with `test_dataloader()` for evaluation
-  - model: mnist
-  - logger: null
-  - trainer: default
+  - data: Full_DataModule # choose datamodule with `test_dataloader()` for evaluation
+  - model: ArcPalmModule
+  - logger: wandb
+  - trainer: gpu
   - paths: default
   - extras: default
   - hydra: default
 
 task_name: "eval"
 
-tags: ["dev"]
+hydra:
+  run:
+    dir: ${paths.log_dir}/${task_name}/runs/Thesis_Eval_VisionTransformer_ArcFaceLoss_Canny
+
+logger:
+  wandb:
+    name: "Thesis_Eval_VisionTransformer_ArcFaceLoss_Canny"
+    tags: ${tags}
+    group: "Vision Transformer"
+  aim:
+    experiment: "Vision Transformer"
+
+# model: 
+#   backbone: 
+#     _target_: src.models.backbone.iResnet.IResNet
+#     block: "IBasicBlock"
+#     layers: "iresnet50"
+#     num_features: 512
+#   loss: 'ArcFaceLoss'
+#   optimizer:
+#     lr: 0.005
+#     weight_decay: 0.0005
+#   num_classes: 1527
+
+
+tags: ["eval", "thesis", "arcface", "iresnet50"]
 
 # passing checkpoint path is necessary for evaluation
-ckpt_path: ???
+ckpt_path: /home/anhnt596/Palm-Recognition/logs/train/runs/Thesis_VisionTransformer_ArcFaceLoss_Canny/checkpoints/epoch_071.ckpt
+
+model: 
+  backbone: 
+    _target_: src.models.backbone.ViT.SimpleViT
+    image_height: 224
+    image_width: 224
+    patch_size: 7
+    num_classes: 512
+    dim: 512
+    depth: 4
+    heads: 8
+    channels: 6
+    mlp_dim: 1024
+  loss: 'ArcFaceLoss'
+  optimizer:
+    lr: 0.01
+  num_classes: 1527

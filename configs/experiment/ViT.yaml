@@ -1,0 +1,55 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=example
+
+defaults:
+  - override /data: Full_DataModule
+  - override /model: ArcPalmModule
+  - override /callbacks: default
+  - override /trainer: gpu
+  - override /hydra: default
+  - override /logger: wandb
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["Thesis","Canny Edge", "Vision Transformer", "ArcFaceLoss"]
+
+data:
+  type_data: 'canny'
+  batch_size: 32
+  num_workers: 20
+
+hydra:
+  run:
+    dir: ${paths.log_dir}/${task_name}/runs/Thesis_VisionTransformer_ArcFaceLoss_Canny
+
+trainer:
+  min_epochs: 80
+  max_epochs: 80
+
+logger:
+  wandb:
+    name: 'Thesis_VisionTransformer_ArcFaceLoss_Canny'
+    tags: ${tags}
+    group: "Vision Transformer"
+  aim:
+    experiment: "ArcFace VisionTransformer"
+
+model: 
+  backbone: 
+    _target_: src.models.backbone.ViT.SimpleViT
+    image_height: 224
+    image_width: 224
+    patch_size: 7
+    num_classes: 512
+    dim: 512
+    depth: 4
+    heads: 8
+    channels: 6
+    mlp_dim: 1024
+  loss: 'ArcFaceLoss'
+  optimizer:
+    lr: 0.01
+  num_classes: 1527
