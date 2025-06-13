@@ -1,72 +1,59 @@
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
+import numpy as np
+import pandas as pd
 import torch
+import torch.nn.functional as F
+import wandb
 from lightning import LightningModule
-from torchmetrics import MaxMetric, MeanMetric
+from lightning.pytorch.utilities.types import STEP_OUTPUT
+from pytorch_metric_learning import losses
+from sklearn import metrics
+from torchmetrics import AUROC, ROC, MaxMetric, MeanMetric
 from torchmetrics.classification.accuracy import Accuracy
 
 
-class MNISTLitModule(LightningModule):
-    """Example of a `LightningModule` for MNIST classification.
-
-    A `LightningModule` implements 8 key methods:
-
-    ```python
-    def __init__(self):
-    # Define initialization code here.
-
-    def setup(self, stage):
-    # Things to setup before each stage, 'fit', 'validate', 'test', 'predict'.
-    # This hook is called on every process when using DDP.
-
-    def training_step(self, batch, batch_idx):
-    # The complete training step.
-
-    def validation_step(self, batch, batch_idx):
-    # The complete validation step.
-
-    def test_step(self, batch, batch_idx):
-    # The complete test step.
-
-    def predict_step(self, batch, batch_idx):
-    # The complete predict step.
-
-    def configure_optimizers(self):
-    # Define and configure optimizers and LR schedulers.
-    ```
-
-    Docs:
-        https://lightning.ai/docs/pytorch/latest/common/lightning_module.html
-    """
-
+class ArcPalmModule(LightningModule):
     def __init__(
         self,
-        net: torch.nn.Module,
+        backbone: torch.nn.Module,
+        loss: str,
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler,
         compile: bool,
-    ) -> None:
-        """Initialize a `MNISTLitModule`.
-
-        :param net: The model to train.
-        :param optimizer: The optimizer to use for training.
-        :param scheduler: The learning rate scheduler to use for training.
-        """
+        num_classes: int = 1527,
+        pretrain_backbone: str = None,
+    ):
         super().__init__()
 
-        # this line allows to access init params with 'self.hparams' attribute
-        # also ensures init params will be stored in ckpt
         self.save_hyperparameters(logger=False)
+        self.num_classes = num_classes
+        if pretrain_backbone is not None:
+            self.backbone = ArcPalmModule.load_from_checkpoint(
+                pretrain_backbone
+            ).backbone.train()
+        else:
+            self.backbone = backbone
 
-        self.net = net
-
-        # loss function
-        self.criterion = torch.nn.CrossEntropyLoss()
-
-        # metric objects for calculating and averaging accuracy across batches
-        self.train_acc = Accuracy(task="multiclass", num_classes=10)
-        self.val_acc = Accuracy(task="multiclass", num_classes=10)
-        self.test_acc = Accuracy(task="multiclass", num_classes=10)
+        if loss == "ArcFaceLoss":
+            self.loss = losses.ArcFaceLoss(
+                num_classes=self.num_classes, embedding_size=512, margin=30.0, scale=48
+            )
+        elif loss == "CosFaceLoss":
+            self.loss = losses.CosFaceLoss(
+                num_classes=self.num_classes, embedding_size=512, margin=0.35, scale=64
+            )
+        elif loss == "SubCenterArcFaceLoss":
+            self.loss = losses.SubCenterArcFaceLoss(
+                num_classes=self.num_classes,
+                embedding_size=512,
+                margin=28.6,
+                scale=48,
+                sub_centers=3,
+            )
+        self.train_acc = Accuracy(task="multiclass", num_classes=self.num_classes)
+        self.val_acc = Accuracy(task="multiclass", num_classes=self.num_classes)
+        self.test_acc = Accuracy(task="multiclass", num_classes=self.num_classes)
 
         # for averaging loss across batches
         self.train_loss = MeanMetric()
@@ -76,13 +63,11 @@ class MNISTLitModule(LightningModule):
         # for tracking best so far validation accuracy
         self.val_acc_best = MaxMetric()
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Perform a forward pass through the model `self.net`.
+        self.test_preds = torch.empty(0, device="cuda")
+        self.test_targets = torch.empty(0, device="cuda")
 
-        :param x: A tensor of images.
-        :return: A tensor of logits.
-        """
-        return self.net(x)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.backbone(x)
 
     def on_train_start(self) -> None:
         """Lightning hook that is called when training begins."""
@@ -104,9 +89,11 @@ class MNISTLitModule(LightningModule):
             - A tensor of predictions.
             - A tensor of target labels.
         """
+
         x, y = batch
-        logits = self.forward(x)
-        loss = self.criterion(logits, y)
+        features = self.forward(x)
+        loss = self.loss(features, y)
+        logits = self.loss.get_logits(features)
         preds = torch.argmax(logits, dim=1)
         return loss, preds, y
 
@@ -125,17 +112,37 @@ class MNISTLitModule(LightningModule):
         # update and log metrics
         self.train_loss(loss)
         self.train_acc(preds, targets)
-        self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("train/acc", self.train_acc, on_step=False, on_epoch=True, prog_bar=True)
+        self.log(
+            "train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True
+        )
+        self.log(
+            "train/acc", self.train_acc, on_step=False, on_epoch=True, prog_bar=True
+        )
 
         # return loss or backpropagation will fail
         return loss
 
+    def test_step(
+        self, batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+    ):
+        img1, img2, targets = batch
+        feature1 = self.forward(img1)
+        feature2 = self.forward(img2)
+
+        feature1 = F.normalize(feature1, p=2, dim=1)
+        feature2 = F.normalize(feature2, p=2, dim=1)
+
+        score = torch.sum(feature1 * feature2, dim=1)
+
+        self.test_preds = torch.cat((self.test_preds, score), dim=0)
+        self.test_targets = torch.cat((self.test_targets, targets), dim=0)
+
     def on_train_epoch_end(self) -> None:
         "Lightning hook that is called when a training epoch ends."
-        pass
 
-    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> None:
+    def validation_step(
+        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
+    ) -> None:
         """Perform a single validation step on a batch of data from the validation set.
 
         :param batch: A batch of data (a tuple) containing the input tensor of images and target
@@ -156,38 +163,47 @@ class MNISTLitModule(LightningModule):
         self.val_acc_best(acc)  # update best so far val acc
         # log `val_acc_best` as a value through `.compute()` method, instead of as a metric object
         # otherwise metric would be reset by lightning after each epoch
-        self.log("val/acc_best", self.val_acc_best.compute(), sync_dist=True, prog_bar=True)
-
-    def test_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> None:
-        """Perform a single test step on a batch of data from the test set.
-
-        :param batch: A batch of data (a tuple) containing the input tensor of images and target
-            labels.
-        :param batch_idx: The index of the current batch.
-        """
-        loss, preds, targets = self.model_step(batch)
-
-        # update and log metrics
-        self.test_loss(loss)
-        self.test_acc(preds, targets)
-        self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("test/acc", self.test_acc, on_step=False, on_epoch=True, prog_bar=True)
+        self.log(
+            "val/acc_best", self.val_acc_best.compute(), sync_dist=True, prog_bar=True
+        )
 
     def on_test_epoch_end(self) -> None:
         """Lightning hook that is called when a test epoch ends."""
-        pass
+        fpr, tpr, thresholds = metrics.roc_curve(
+            self.test_targets.cpu().numpy(), self.test_preds.cpu().numpy()
+        )
+
+        data = {"TPR": tpr, "FPR": fpr, "Thresholds": thresholds}
+
+        df = pd.DataFrame(data)
+
+        row_000001 = df[df["FPR"] > 0.000001].iloc[0]
+
+        row_00001 = df[df["FPR"] > 0.00001].iloc[0]
+
+        row_0001 = df[df["FPR"] > 0.0001].iloc[0]
+
+        row_001 = df[df["FPR"] > 0.001].iloc[0]
+
+        row_01 = df[df["FPR"] > 0.01].iloc[0]
+
+        tbl = wandb.Table(
+            dataframe=pd.DataFrame([row_000001, row_00001, row_0001, row_001, row_01])
+        )
+        wandb.log({"TPR/FPR": tbl})
 
     def setup(self, stage: str) -> None:
         """Lightning hook that is called at the beginning of fit (train + validate), validate,
-        test, or predict.
+                test, or predict.
 
-        This is a good hook when you need to build models dynamically or adjust something about
-        them. This hook is called on every process when using DDP.
-
-        :param stage: Either `"fit"`, `"validate"`, `"test"`, or `"predict"`.
+                This is a good hook when you need to build models dynamically or adjust something about
+                them. This hook is called on every process when using DDP.
+        )
+                :param stage: Either `"fit"`, `"validate"`, `"test"`, or `"predict"`.
         """
         if self.hparams.compile and stage == "fit":
-            self.net = torch.compile(self.net)
+            self.backbone = torch.compile(self.backbone)
+            self.loss = torch.compile(self.loss)
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Choose what optimizers and learning-rate schedulers to use in your optimization.
@@ -214,4 +230,4 @@ class MNISTLitModule(LightningModule):
 
 
 if __name__ == "__main__":
-    _ = MNISTLitModule(None, None, None, None)
+    _ = ArcPalmModule(None, None, None, None, None)

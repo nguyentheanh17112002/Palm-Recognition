@@ -1,0 +1,51 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=example
+
+defaults:
+  - override /data: Full_DataModule
+  - override /model: ArcPalmModule
+  - override /callbacks: default
+  - override /trainer: gpu
+  - override /hydra: default
+  - override /logger: wandb
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["Thesis", "iResnet 50", "ArcFaceLoss"]
+
+hydra:
+  run:
+    dir: ${paths.log_dir}/${task_name}/runs/Thesis_iResnet50_ArcFaceLoss
+
+data:
+  type_data: 'base'
+  batch_size: 32
+  num_workers: 20
+
+trainer:
+  min_epochs: 40
+  max_epochs: 40
+  accumulate_grad_batches: 4
+
+logger:
+  wandb:
+    name: "Thesis_iResnet50_ArcFaceLoss"
+    tags: ${tags}
+    group: "iResnet 50"
+  aim:
+    experiment: "Full Resnet"
+
+model:
+  backbone:
+    _target_: src.models.backbone.iResnet.IResNet
+    block: "IBasicBlock"
+    layers: "iresnet50"
+    num_features: 512
+  loss: 'ArcFaceLoss'
+  optimizer:
+    lr: 0.005
+    weight_decay: 0.0005
+  num_classes: 1527
